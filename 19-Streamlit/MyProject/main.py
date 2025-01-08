@@ -1,14 +1,19 @@
 import os
 import streamlit as st
+import glob
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from langchain_openai import AzureChatOpenAI
 from langchain_core.messages.chat import ChatMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import load_prompt
+from langchain import hub
+from langchain_teddynote import logging
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
+logging.langsmith("iamtk-streamlit")
 
 token_provider = get_bearer_token_provider(
     DefaultAzureCredential(), 
@@ -32,6 +37,12 @@ if "messages" not in st.session_state:
 with st.sidebar:
     clear_btn = st.button("대화 초기화")
 
+    prompt_files = glob.glob("prompts/*.yaml")
+    # prompt_names = [os.path.basename(file) for file in prompt_files]
+    selected_prompt = st.selectbox("프롬프트를 선택해 주세요", prompt_files, index=0)
+    task_input = st.text_input("작업 입력", "")
+
+
 def print_messages():
     for chat_message in st.session_state["messages"]:
         st.chat_message(chat_message.role).write(chat_message.content)
@@ -41,12 +52,12 @@ def add_message(role, message):
     st.session_state["messages"].append(ChatMessage(role=role, content=message))
 
 # 챗봇 체인 생성
-def create_chain():
-    # prompt | llm | output_parser
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "당신은 친절한 AI 어시스턴트입니다."),
-        ("user", "#Qusetion:\n{question}"),
-    ])
+def create_chain(prompt_filepath, task=None):
+    # prompt 적용
+    prompt = load_prompt(prompt_filepath, encoding="utf-8")
+    if task:
+        prompt = prompt.partial(task=task)
+
     output_parser = StrOutputParser()
 
     return prompt | llm | output_parser
@@ -63,8 +74,11 @@ if user_input:
     st.chat_message("user").write(user_input)
 
     # 챗봇 체인 생성
-    chain = create_chain()
-    response = chain.stream({"question": user_input})
+    chain = create_chain(selected_prompt, task=task_input)
+
+    # prompt_type이 "요약"일 때는 "ARTICLE" 키를 사용
+    input_key = "ARTICLE" if selected_prompt == "요약" else "question"
+    response = chain.stream({input_key: user_input})
 
     with st.chat_message("assistant"):
         container = st.empty()
