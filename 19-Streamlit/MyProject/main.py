@@ -5,10 +5,8 @@ from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from langchain_openai import AzureChatOpenAI
 from langchain_core.messages.chat import ChatMessage
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import load_prompt
-from langchain import hub
 from langchain_teddynote import logging
 from dotenv import load_dotenv
 
